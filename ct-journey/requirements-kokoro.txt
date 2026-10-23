@@ -1,0 +1,13 @@
+# Local free TTS fallback (kokoro_service.py) - the `kokoro` package requires Python <3.13,
+# incompatible with this project's main 3.14 interpreter, so it lives in its own venv:
+#
+#   py -3.12 -m venv kokoro_venv
+#   kokoro_venv\Scripts\python.exe -m pip install -r requirements-kokoro.txt
+#
+# run.py auto-starts kokoro_service.py from kokoro_venv if it exists (see
+# journey_config.KOKORO_VENV_PYTHON) - harmless to skip if you don't need this tier of the
+# voice fallback chain (ElevenLabs -> Kokoro -> browser voice, see tts.py).
+kokoro
+soundfile
+fastapi
+uvicorn

@@ -22,26 +22,28 @@ FACE_SERVICE_HOST = "127.0.0.1"
 FACE_SERVICE_PORT = 8080
 FACE_SERVICE_URL = f"http://{FACE_SERVICE_HOST}:{FACE_SERVICE_PORT}"
 
+# Local Kokoro-82M TTS microservice (free, open-weight, offline) - the middle tier of the
+# voice fallback chain (ElevenLabs -> Kokoro -> browser voice, see tts.py). Runs under its
+# own Python 3.12 venv (kokoro_venv/) since `kokoro` needs Python <3.13.
+KOKORO_VENV_PYTHON = OLAF / "ct-journey" / "kokoro_venv" / "Scripts" / "python.exe"
+KOKORO_SERVICE_PORT = 8071
+KOKORO_SERVICE_URL = f"http://127.0.0.1:{KOKORO_SERVICE_PORT}"
+
 JOURNEY_HOST = "0.0.0.0"
 JOURNEY_PORT = 8090
 
 # Demo stands in for "today's worklist". A real deployment would get specific expected
 # patients from the ACU schedule; here the robot instead accepts whoever it recognizes
 # from patient-face-id-robot/data/patients.json (currently Abdullah and Taimoor) and
-# greets them by name. DEMO_PATIENT_NAME is only a fallback for the brief window before
-# anyone has been identified yet.
+# greets them by name. None = no particular patient is expected at the call-out.
 DEMO_PATIENT_ID = None
-DEMO_PATIENT_NAME = "there"
 
-# Placeholder timings until the robot's real navigation is wired in - a "travel" stage
-# (guide_changing_room, guide_ct_room, return_waiting_room) just holds for this long to
-# simulate the walk; swap in a per-route estimate from the real router later.
-SIMULATED_TRAVEL_SECONDS = 4.0
-
-# Extra breathing room on top of a successful face match in the "confirm it's still you"
-# stages, so the robot doesn't snap straight to the next stage the instant it recognizes
-# someone - it lingers a little on the confirmation itself.
-CONFIRM_DWELL_SECONDS = 3.0
+# Per the patient-journey script: the robot calls out the next appointment's name *before*
+# it has identified anyone (from the day's schedule, in a real deployment). This is that
+# stand-in - who the waiting-room call-out addresses by name. It does NOT restrict who can
+# actually be recognized (any registered patient in patients.json still auto-matches, same
+# as before) - it only changes what the robot says while still waiting for a face.
+NEXT_APPOINTMENT_NAME = "Abdullah"
 
 # The on-screen alignment guide shown over the live camera feed during face-identify
 # stages: a face only "counts" for matching once it's centered and large enough inside this

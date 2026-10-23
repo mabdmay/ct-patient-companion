@@ -8,10 +8,25 @@
 </head>
 <body>
  <div id="device-frame">
-  <div id="source-select">
+  <!-- Browsers refuse to play audio before the page has been touched, so Olaf would start
+       the journey mute. One tap here both clears that and warms up the AudioContext; the
+       line on screen is spoken as soon as it's dismissed. -->
+  <div id="start-gate" style="display:none">
+    <div class="start-inner">
+      <h1>CT Journey</h1>
+      <p>Tap anywhere to start</p>
+    </div>
+  </div>
+
+  <div id="source-select" style="display:none">
     <h1>CT Journey</h1>
     <p>Before connecting, choose where Olaf's camera feed comes from.</p>
     <div id="source-buttons">
+      <button id="source-none" class="source-btn">
+        <span class="source-icon">&#9654;</span>
+        <span class="source-label">No Camera</span>
+        <span class="source-sub">Walk the journey with the on-screen buttons only</span>
+      </button>
       <button id="source-external" class="source-btn">
         <span class="source-icon">&#128247;</span>
         <span class="source-label">External Camera</span>
@@ -43,7 +58,6 @@
         </div>
 
         <p id="message">Please wait.</p>
-        <p id="heard-text" style="display:none"></p>
 
         <div id="badges">
           <span id="track-badge" class="badge" style="display:none"></span>
@@ -52,10 +66,9 @@
 
         <div id="examples"></div>
 
-        <div id="controls">
-          <button id="listen-btn" style="display:none">&#127908; Listen</button>
-          <button id="next-btn" style="display:none">Next &rarr;</button>
-        </div>
+        <!-- One button per branch of the current phase, built from state.choices by app.js.
+             Pressing one is the only thing that moves the journey on. -->
+        <div id="controls"></div>
       </main>
     </div>
 

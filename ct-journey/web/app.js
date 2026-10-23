@@ -1,7 +1,8 @@
 let lastSpoken = -1;
 let camerasActive = false;
-let manualMode = false;
 let currentAudio = null;
+let lastControlsKey = null;  // so the buttons are only rebuilt when the stage actually changes
+let started = false;  // the screen has been tapped once, so audio is allowed to play
 
 // ---------------------------------------------------------------- eye animation
 // The eyes shrink/expand in length while Olaf speaks. Real audio-amplitude analysis (via
@@ -138,8 +139,8 @@ scheduleBlinkCycle();
 setInterval(scheduleBlinkCycle, BLINK_CYCLE_MS);
 
 // A browser mirroring the robot's screen (e.g. the laptop watching the demo) adds
-// ?mute=1 to skip speech synthesis and ?readonly=1 to hide the manual "Next"/"Listen"
-// buttons - otherwise every mirrored tab would also talk and could control the robot.
+// ?mute=1 to skip speech synthesis and ?readonly=1 to hide the stage buttons - otherwise
+// every mirrored tab would also talk and could drive the journey.
 const viewParams = new URLSearchParams(window.location.search);
 const isMuted = viewParams.get("mute") === "1";
 const isReadonly = viewParams.get("readonly") === "1";
@@ -177,18 +178,19 @@ if (window.speechSynthesis) {
 }
 
 function speakBrowserFallback(text, faceEl) {
-  if (!window.speechSynthesis) return;
+  if (!window.speechSynthesis) {
+    faceEl.classList.remove("speaking");  // nothing is actually going to speak - don't get stuck
+    return;
+  }
   window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
   if (!chosenVoice) chosenVoice = pickBrowserVoice();
   if (chosenVoice) utter.voice = chosenVoice;
   utter.rate = 0.97;
   utter.pitch = 1.05;
-  // No access to this audio's real waveform, so just the randomized jitter here.
-  utter.onstart = () => {
-    faceEl.classList.add("speaking");
-    startRandomEyeJitter();
-  };
+  // "speaking" is already on faceEl (set the instant speak() was called) - just the jitter
+  // animation needs to wait for actual playback to start.
+  utter.onstart = () => startRandomEyeJitter();
   utter.onend = utter.onerror = () => {
     faceEl.classList.remove("speaking");
     stopEyeAnim();
@@ -204,6 +206,9 @@ async function speak(text) {
     currentAudio = null;
   }
   stopEyeAnim();
+  // Show the mouth moving from the moment we commit to saying this line, not just once
+  // playback actually starts - synthesis (network fetch + TTS) takes a second or two.
+  faceEl.classList.add("speaking");
   try {
     const res = await fetch(`/api/tts?text=${encodeURIComponent(text)}`);
     if (!res.ok) throw new Error("tts http " + res.status);
@@ -212,7 +217,6 @@ async function speak(text) {
     const audio = new Audio(url);
     currentAudio = audio;
     audio.onplay = () => {
-      faceEl.classList.add("speaking");
       if (!tryAttachReactiveEyes(audio)) startRandomEyeJitter();
     };
     audio.onended = audio.onerror = () => {
@@ -237,56 +241,76 @@ function setBadge(el, text, cls) {
   el.style.display = "inline-block";
 }
 
+// ---------------------------------------------------------------- stage buttons
+// Every phase waits here until one of these is pressed; the index of the pressed button is
+// what tells the backend which branch of the script to take next (see server.py
+// POST /api/next and stages.py Choice).
+async function pressChoice(index, buttonEl) {
+  const controls = document.getElementById("controls");
+  controls.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  buttonEl.classList.add("pressed");
+  try {
+    const res = await fetch(`/api/next?choice=${index}`, { method: "POST" });
+    if (!res.ok) throw new Error("http " + res.status);
+  } catch (err) {
+    console.error("advance failed:", err);
+    // The journey didn't move - give the buttons back rather than stranding the demo.
+    buttonEl.classList.remove("pressed");
+    controls.querySelectorAll("button").forEach((b) => (b.disabled = false));
+  }
+}
+
+function renderControls(stageId, choices) {
+  const controls = document.getElementById("controls");
+  if (!controls) return;
+  const key = stageId + "|" + choices.join("|");
+  if (key === lastControlsKey) return;  // same stage - leave the live buttons alone
+  lastControlsKey = key;
+  controls.innerHTML = "";
+  if (isReadonly) return;  // a mirroring tab watches; it doesn't drive
+  choices.forEach((label, index) => {
+    const btn = document.createElement("button");
+    btn.className = "choice-btn" + (index === 0 ? " primary" : "");
+    btn.textContent = label;
+    btn.addEventListener("click", () => pressChoice(index, btn));
+    controls.appendChild(btn);
+  });
+}
+
 async function poll() {
   try {
     const res = await fetch("/api/state", { cache: "no-store" });
     const s = await res.json();
 
-    // Nothing (camera included) starts until a source is chosen on this pre-connect screen -
-    // see runner.py JourneyRunner._source_chosen. Once state reports one, switch over to the
-    // normal journey UI and never show this screen again for the rest of the run.
+    // Nothing (camera included) starts until a source is resolved - see runner.py
+    // JourneyRunner._source_chosen. With the default "none" source that happens on its own
+    // at startup; only `--camera-source ask` actually shows this screen.
     const sourceSelect = document.getElementById("source-select");
     const layout = document.getElementById("layout");
+    const startGate = document.getElementById("start-gate");
     if (sourceSelect && layout) {
       const chosen = !!s.camera_source;
       sourceSelect.style.display = chosen ? "none" : "flex";
       layout.style.display = chosen ? "flex" : "none";
+      // The gate only covers the journey itself - picking a camera source is a tap too, so
+      // that screen doesn't need one on top of it.
+      if (startGate) startGate.style.display = chosen && !started ? "flex" : "none";
     }
 
-    document.getElementById("stage-title").textContent = s.title || "";
+    document.getElementById("stage-title").textContent =
+      s.phase ? `Phase ${s.phase} of 6 - ${s.title || ""}` : s.title || "";
     document.getElementById("message").textContent = s.message || "";
 
-    manualMode = !!s.manual;
-    document.getElementById("next-btn").style.display = manualMode && !isReadonly ? "inline-block" : "none";
-    document.querySelector(".progress-track").style.display = manualMode ? "none" : "block";
-    if (!manualMode) {
-      const pct = s.duration > 0 ? Math.min(100, (100 * s.elapsed) / s.duration) : 0;
-      document.getElementById("progress").style.width = pct + "%";
-    }
+    // Progress is which phase of the script we're in - there are no timers left to measure.
+    document.getElementById("progress").style.width = (100 * (s.phase || 0)) / 6 + "%";
 
-    // Olaf's face is the whole screen while idle/talking/listening - only real camera
-    // sensing (s.watching) switches over to the live feed + status text instead. Everything
-    // else (message text, badges, examples) is hidden while the face is up, by design: just
-    // the eyes and mouth.
+    renderControls(s.stage_id || "", s.choices || []);
+
+    // Olaf's face is the screen. The live camera panel only ever appears when there IS a
+    // camera and the stage is actually sensing with it; otherwise the face has it all.
     const faceEl = document.getElementById("face");
-    const showFace = !!s.listening || !s.watching;
-    faceEl.classList.toggle("face-hidden", !showFace);
-    faceEl.classList.toggle("listening", !!s.listening);
+    faceEl.classList.toggle("face-hidden", !!s.watching);
 
-    document.body.classList.toggle("face-mode", showFace);
-
-    const heardEl = document.getElementById("heard-text");
-    if (heardEl) {
-      if (s.heard_text && !s.listening) {
-        heardEl.textContent = `"${s.heard_text}"`;
-        heardEl.style.display = "block";
-      } else {
-        heardEl.style.display = "none";
-      }
-    }
-
-    // The camera panel only shows while the robot is actually using the camera this
-    // stage (looking for/tracking/checking the patient) - hidden the rest of the time.
     const panel = document.getElementById("camera-panel");
     const liveCam = document.getElementById("live-cam");
     panel.style.display = s.watching ? "flex" : "none";
@@ -298,19 +322,18 @@ async function poll() {
       liveCam.src = "";  // closes the stream connection until it's needed again
     }
 
-    // The alignment guide only makes sense during face-identify stages; it turns solid
-    // green once the backend agrees the face is centered/close enough to actually match.
+    // The alignment guide only makes sense while a face-identify stage is looking at
+    // someone; it turns solid green once the backend agrees the face is centered/close
+    // enough to match.
     const frameEl = document.getElementById("face-frame");
     const captionEl = document.getElementById("cam-caption");
     if (frameEl && captionEl) {
-      const isIdentifyStage = ["waiting_room_call", "confirm_at_changing_room", "confirm_after_changing"].includes(s.stage_id);
-      if (isIdentifyStage && s.watching) {
+      if (s.watching && s.face_aligned !== null && s.face_aligned !== undefined) {
         frameEl.style.display = "block";
         frameEl.classList.toggle("aligned", s.face_aligned === true);
-        captionEl.textContent =
-          s.face_aligned === true ? "Got it!" :
-          s.face_aligned === false ? "Step into the frame and face the camera" :
-          "Looking for you...";
+        captionEl.textContent = s.face_aligned === true
+          ? "Got it!"
+          : "Step into the frame and face the camera";
       } else {
         frameEl.style.display = "none";
         captionEl.textContent = "Looking for you...";
@@ -335,14 +358,20 @@ async function poll() {
     }
 
     const examplesEl = document.getElementById("examples");
-    examplesEl.innerHTML = "";
-    (s.example_images || []).forEach((name) => {
-      const img = document.createElement("img");
-      img.src = `/api/examples/${name}`;
-      examplesEl.appendChild(img);
-    });
+    const exampleKey = (s.example_images || []).join("|");
+    if (examplesEl.dataset.key !== exampleKey) {
+      examplesEl.dataset.key = exampleKey;
+      examplesEl.innerHTML = "";
+      (s.example_images || []).forEach((name) => {
+        const img = document.createElement("img");
+        img.src = `/api/examples/${name}`;
+        examplesEl.appendChild(img);
+      });
+    }
 
-    if (s.speak_seq !== lastSpoken) {
+    // Nothing is spoken before the screen has been tapped once - the browser would refuse
+    // to play it, and the line would be silently lost.
+    if (started && s.speak_seq !== lastSpoken) {
       lastSpoken = s.speak_seq;
       if (!isMuted) speak(s.message);
     }
@@ -352,24 +381,16 @@ async function poll() {
   setTimeout(poll, 600);
 }
 
-// Guarded against missing elements: a WebView that cached an older index.html alongside a
-// freshly-fetched app.js (version skew) must not throw here and abort the whole script -
-// that would silently kill poll() below and leave the page stuck on its static placeholder.
-const nextBtn = document.getElementById("next-btn");
-if (nextBtn) {
-  nextBtn.addEventListener("click", () => {
-    fetch("/api/next", { method: "POST" }).catch((err) => console.error(err));
-  });
-}
-
-// Pre-connect camera-source buttons. Disabled on a mirroring/readonly view - this is a
-// once-per-run operator decision, not something a second browser tab should be able to make.
+// Pre-connect camera-source buttons (only shown with --camera-source ask). Disabled on a
+// mirroring/readonly view - this is a once-per-run operator decision, not something a
+// second browser tab should be able to make.
 async function chooseSource(source) {
   const statusEl = document.getElementById("source-status");
   const buttons = document.querySelectorAll(".source-btn");
   buttons.forEach((b) => (b.disabled = true));
   document.getElementById(`source-${source}`).classList.add("chosen");
   if (statusEl) statusEl.textContent = "Connecting...";
+  startSession();  // this click is the gesture that unlocks audio - no gate needed after it
   try {
     const res = await fetch("/api/camera-source", {
       method: "POST",
@@ -385,39 +406,27 @@ async function chooseSource(source) {
   }
 }
 
-const sourceExternalBtn = document.getElementById("source-external");
-const sourceRobotBtn = document.getElementById("source-robot");
-if (sourceExternalBtn && sourceRobotBtn) {
-  if (isReadonly) {
-    sourceExternalBtn.disabled = true;
-    sourceRobotBtn.disabled = true;
-    const statusEl = document.getElementById("source-status");
-    if (statusEl) statusEl.textContent = "Waiting for the camera source to be chosen on the robot...";
-  } else {
-    sourceExternalBtn.addEventListener("click", () => chooseSource("external"));
-    sourceRobotBtn.addEventListener("click", () => chooseSource("robot"));
-  }
+// The tap that unlocks audio: dismisses the gate and lets the line already on screen be
+// spoken on the next poll (lastSpoken is rewound so it isn't skipped as "already said").
+function startSession() {
+  if (started) return;
+  started = true;
+  lastSpoken = -1;
+  ensureAudioContext();
+  const gate = document.getElementById("start-gate");
+  if (gate) gate.style.display = "none";
 }
 
-const listenBtn = document.getElementById("listen-btn");
-if (listenBtn) {
-  if (!isReadonly) listenBtn.style.display = "inline-block";
-  listenBtn.addEventListener("click", async () => {
-    listenBtn.disabled = true;
-    listenBtn.textContent = "\u{1F3A4} Listening...";
-    try {
-      await fetch("/api/listen", { method: "POST" });
-    } catch (err) {
-      console.error(err);
-    }
-    listenBtn.disabled = false;
-    listenBtn.textContent = "\u{1F3A4} Listen";
-  });
-}
+const startGateEl = document.getElementById("start-gate");
+if (startGateEl) startGateEl.addEventListener("click", startSession);
 
-// Browsers only allow starting/resuming an AudioContext after a real user gesture - warm it
-// up on the first tap anywhere (almost always the camera-source choice), so by the time
-// Olaf's first line plays, reactive eyes can actually engage.
-document.addEventListener("click", () => ensureAudioContext(), { once: true });
+const sourceButtons = ["none", "external", "robot"].map((s) => [s, document.getElementById(`source-${s}`)]);
+if (isReadonly) {
+  sourceButtons.forEach(([, el]) => el && (el.disabled = true));
+  const statusEl = document.getElementById("source-status");
+  if (statusEl) statusEl.textContent = "Waiting for the camera source to be chosen on the robot...";
+} else {
+  sourceButtons.forEach(([source, el]) => el && el.addEventListener("click", () => chooseSource(source)));
+}
 
 poll();

@@ -40,6 +40,31 @@ body {
   overflow: hidden;
 }
 
+/* -- Tap-to-start gate: covers the whole device frame until the screen has been touched
+   once, which is what lets the browser play Olaf's voice at all (see app.js). */
+#start-gate {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  cursor: pointer;
+  text-align: center;
+}
+
+#start-gate h1 {
+  font-size: 2.4rem;
+  margin: 0 0 8px;
+}
+
+#start-gate p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 1.2rem;
+}
+
 /* -- Pre-connect screen: shown before anything else, nothing (camera included) starts
    until the operator picks a source here. */
 #source-select {
@@ -162,29 +187,70 @@ header {
 
 main {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   padding: 0 32px;
   text-align: center;
 }
 
-/* While the giant face is up, it IS the screen - everything else (status text, badges,
-   positioning examples) steps aside. They come back the moment real camera sensing starts
-   (face hides, body.face-mode is removed) since that status text is actually useful there. */
-body.face-mode #message,
-body.face-mode #badges,
-body.face-mode #examples,
-body.face-mode header {
-  display: none;
-}
-
+/* Olaf's face takes whatever room is left once the line it's saying and this phase's
+   buttons have theirs - those two are always on screen, since the journey only ever moves
+   on when someone presses a button. */
 #message {
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: 600;
   line-height: 1.3;
-  max-width: 85%;
+  max-width: 90%;
+  margin: 0 0 4px;
+  min-height: 1.3em;
+}
+
+/* -- The stage buttons: one per branch of the current phase (see stages.py Choice). */
+#controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: center;
+  padding: 18px 0 22px;
+}
+
+.choice-btn {
+  padding: 16px 28px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--fg);
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+
+.choice-btn.primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.choice-btn:hover:not(:disabled) {
+  background: #1d2129;
+}
+
+.choice-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.choice-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.choice-btn.pressed {
+  border-color: var(--ok);
+  color: var(--ok);
 }
 
 /* -- Olaf's face: two solid white rounded-square eyes and a white "V" mouth, straight on
@@ -207,6 +273,9 @@ body.face-mode header {
 #face {
   position: relative;
   flex: 1;
+  /* Shrinks to make room for a long line + the reference images + the buttons, but never
+     so far that the face stops reading as a face. */
+  min-height: 25%;
   width: 100%;
 }
 
@@ -268,26 +337,8 @@ body.face-mode header {
   border-radius: 999px;
 }
 
-/* While Whisper is listening/transcribing: a soft scale pulse on the whole face. */
-#face.listening {
-  animation: thinking 1.1s ease-in-out infinite;
-}
-
-@keyframes thinking {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.04); }
-}
-
-#heard-text {
-  margin-top: -8px;
-  color: var(--accent);
-  font-size: 1.3rem;
-  font-style: italic;
-  max-width: 700px;
-}
-
 #badges {
-  margin-top: 24px;
+  margin-top: 10px;
   display: flex;
   gap: 12px;
 }
@@ -305,54 +356,15 @@ body.face-mode header {
 .badge.bad { border-color: var(--bad); color: var(--bad); }
 
 #examples {
-  margin-top: 28px;
+  margin-top: 14px;
   display: flex;
   gap: 16px;
 }
 
 #examples img {
-  max-height: 180px;
+  max-height: 16vh;
   border-radius: 8px;
   border: 1px solid var(--border);
-}
-
-#controls {
-  margin-top: 24px;
-  display: flex;
-  gap: 16px;
-}
-
-#next-btn, #listen-btn {
-  padding: 12px 36px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #0d1117;
-  background: var(--accent);
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-#listen-btn {
-  background: var(--blush);
-}
-
-#next-btn:hover {
-  background: #7ad3f9;
-}
-
-#listen-btn:hover {
-  background: #ffb3c6;
-}
-
-#next-btn:active, #listen-btn:active {
-  transform: translateY(1px);
-}
-
-#listen-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-  transform: none;
 }
 
 #camera-panel {

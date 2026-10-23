@@ -6,18 +6,18 @@ text there - that repo only emits machine-readable advisory reasons. This mappin
 in this orchestrator rather than edited into that repo, so it stays untouched/reusable.
 """
 
-POSITIVE = "You're in the right position. Please stay still."
+POSITIVE = "OK, everything looks good. Please relax and stay still. It'll only take a moment."
 
 REASON_TEXT = {
     "configured_2d_checks_passed": POSITIVE,
     "arm_posture_allowed": POSITIVE,
     "arm_posture_observed": POSITIVE,
     "no_patient_on_table": "I can't see you on the bed yet. Please lie down in the marked area.",
-    "ambiguous_multiple_people": "I'm seeing more than one person near the bed. Could anyone else please step back?",
+    "ambiguous_multiple_people": "I'm seeing more than one person near the bed. Please, anyone who isn't the patient, step back.",
     "lateral_offset": "Please shift a little toward the center of the bed.",
     "axis_error": "Please straighten up along the centerline of the bed.",
     "longitudinal_offset": "Please slide slightly up or down to center yourself on the bed.",
-    "arm_posture_not_allowed": "Please rest your arms alongside your body.",
+    "arm_posture_not_allowed": "Hmm, please put your arms to the sides and tuck your legs in.",
     "invalid_detection": "I'm having trouble getting a clear view. Please hold still for a moment.",
     "missing_pose_landmarks": "I can't see your whole body clearly. Please make sure you're fully in view.",
     "low_or_invalid_landmark_confidence": "I can't see your position clearly enough. Please hold still.",

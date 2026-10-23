@@ -13,7 +13,6 @@ from pydantic import BaseModel
 NO_CACHE_HEADERS = {"Cache-Control": "no-store, no-cache, must-revalidate"}
 
 import journey_config
-import listen
 import tts
 from state import JourneyState
 
@@ -22,7 +21,7 @@ WEB_DIR = HERE / "web"
 
 
 class CameraSourceChoice(BaseModel):
-    source: str  # "external" or "robot"
+    source: str  # "external", "robot" or "none"
     robot_id: str | None = None
 
 
@@ -40,35 +39,23 @@ def create_app(state: JourneyState, runner=None) -> FastAPI:
         return FileResponse(WEB_DIR / "diag.html", headers=NO_CACHE_HEADERS)
 
     @app.post("/api/next")
-    def next_stage():
+    def next_stage(choice: int = 0):
+        """Advance the journey. `choice` is the index of the pressed button in the current
+        stage's `choices` (0 when the stage only offers one way on) - that is what picks the
+        branch, so this is the only thing that moves the journey forward."""
         if runner is not None:
-            runner.advance()
+            runner.advance(choice)
         return {"ok": True}
 
     @app.post("/api/camera-source")
     def camera_source_choice(body: CameraSourceChoice):
-        """The UI's pre-connect "External camera / Robot cameras" screen calls this exactly
-        once per run, before the journey (and any camera) starts - see runner.py
-        JourneyRunner.choose_camera_source."""
-        if body.source not in ("external", "robot"):
-            raise HTTPException(400, "source must be 'external' or 'robot'")
+        """The UI's pre-connect camera screen calls this exactly once per run, before the
+        journey (and any camera) starts - see runner.py JourneyRunner.choose_camera_source."""
+        if body.source not in ("external", "robot", "none"):
+            raise HTTPException(400, "source must be 'external', 'robot' or 'none'")
         if runner is not None:
             runner.choose_camera_source(body.source, body.robot_id)
         return {"ok": True}
-
-    @app.post("/api/listen")
-    def listen_once():
-        """Record a few seconds from the laptop mic and transcribe locally with Whisper.
-        Synchronous on purpose (FastAPI runs a plain `def` route in a worker thread, so this
-        doesn't block the journey loop or other requests) - a button press, not a stream."""
-        state.update(listening=True, heard_text=None)
-        try:
-            text = listen.record_and_transcribe()
-        except Exception as exc:  # mic/model hiccup must never crash the server
-            state.update(listening=False)
-            raise HTTPException(500, f"listen failed: {exc}")
-        state.update(listening=False, heard_text=text)
-        return {"text": text}
 
     @app.get("/app.js")
     def app_js():
@@ -84,17 +71,17 @@ def create_app(state: JourneyState, runner=None) -> FastAPI:
 
     @app.get("/api/tts")
     def tts_audio(text: str):
-        """Synthesizes `text` with ElevenLabs and returns it as an MP3 - Olaf's real voice,
-        instead of whatever TTS engine (often robotic) the viewing browser happens to have
-        installed. Repeated lines are cached (see tts.py). Needs internet + a valid
-        ELEVENLABS_API_KEY; app.js falls back to the browser's own voice if this fails."""
+        """Synthesizes `text` - Olaf's real voice, instead of whatever TTS engine (often
+        robotic) the viewing browser happens to have installed. Tries ElevenLabs, falls back
+        to the local Kokoro service, and only 502s (letting app.js fall back to the browser's
+        own voice) if both fail. Repeated lines are cached (see tts.py)."""
         if not text.strip():
             raise HTTPException(400, "text is required")
         try:
-            mp3_bytes = tts.synthesize_mp3(text)
+            audio_bytes, media_type = tts.synthesize_audio(text)
         except Exception as exc:
-            raise HTTPException(502, f"elevenlabs tts failed: {exc}")
-        return Response(mp3_bytes, media_type="audio/mpeg")
+            raise HTTPException(502, f"tts failed: {exc}")
+        return Response(audio_bytes, media_type=media_type)
 
     @app.get("/api/camera/live.jpg")
     def live_camera():
