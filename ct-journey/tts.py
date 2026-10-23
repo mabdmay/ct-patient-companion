@@ -17,11 +17,7 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 
 from elevenlabs import ElevenLabs  # noqa: E402
 
-#   Originally requested: https://elevenlabs.io/voices/0ggs85h7hrWz8ExXnsBc - that's a public
-#   "voice library" voice, which ElevenLabs blocks via the API on this account's plan (402
-#   "Free users cannot use library voices via the API"). Using Sarah instead: a default
-#   premade voice (female, soft) bundled with every account, confirmed working on this key.
-VOICE_ID = "EXAVITQu4vr4xnSDxMaL"  # Sarah
+VOICE_ID = "kfGEdprt9Oe4pbdP8VTo"  # https://elevenlabs.io/voices/kfGEdprt9Oe4pbdP8VTo
 MODEL_ID = "eleven_flash_v2_5"  # lowest latency - this is an interactive kiosk, not a narration
 
 _client = None

@@ -117,7 +117,13 @@ class JourneyRunner(threading.Thread):
         workflow_id = f"ct-journey-{next(self._workflow_seq)}"
         try:
             self.gateway.publish_screen(workflow_id, title, text)
-        except RuntimeError as exc:  # a gateway hiccup must never break the journey
+        except (RuntimeError, requests.exceptions.RequestException) as exc:
+            # A gateway hiccup (bad HTTP response, or - as happened here - the gateway being
+            # completely unreachable: connect timeout/refused) must never kill this thread.
+            # It used to: gateway._call() raises plain RuntimeError for HTTP errors but lets
+            # requests' own network exceptions (ConnectTimeout etc.) propagate uncaught, which
+            # silently killed the whole journey loop while the HTTP API stayed up - advance()
+            # kept returning {"ok": true} with nothing left alive to read it.
             print(f"[journey] gateway push failed: {exc}")
 
     def _capture_jpeg(self) -> bytes | None:
