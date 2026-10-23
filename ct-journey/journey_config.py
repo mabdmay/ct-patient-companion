@@ -22,13 +22,34 @@ FACE_SERVICE_HOST = "127.0.0.1"
 FACE_SERVICE_PORT = 8080
 FACE_SERVICE_URL = f"http://{FACE_SERVICE_HOST}:{FACE_SERVICE_PORT}"
 
-JOURNEY_HOST = "127.0.0.1"
+JOURNEY_HOST = "0.0.0.0"
 JOURNEY_PORT = 8090
 
-# Demo stands in for "today's worklist": which registered patient the robot is expecting.
-# A real deployment would get this from the ACU schedule, not a hardcoded id.
-DEMO_PATIENT_ID = "abdullah"
-DEMO_PATIENT_NAME = "Abdullah"
+# Demo stands in for "today's worklist". A real deployment would get specific expected
+# patients from the ACU schedule; here the robot instead accepts whoever it recognizes
+# from patient-face-id-robot/data/patients.json (currently Abdullah and Taimoor) and
+# greets them by name. DEMO_PATIENT_NAME is only a fallback for the brief window before
+# anyone has been identified yet.
+DEMO_PATIENT_ID = None
+DEMO_PATIENT_NAME = "there"
+
+# Placeholder timings until the robot's real navigation is wired in - a "travel" stage
+# (guide_changing_room, guide_ct_room, return_waiting_room) just holds for this long to
+# simulate the walk; swap in a per-route estimate from the real router later.
+SIMULATED_TRAVEL_SECONDS = 4.0
+
+# Extra breathing room on top of a successful face match in the "confirm it's still you"
+# stages, so the robot doesn't snap straight to the next stage the instant it recognizes
+# someone - it lingers a little on the confirmation itself.
+CONFIRM_DWELL_SECONDS = 3.0
+
+# The on-screen alignment guide shown over the live camera feed during face-identify
+# stages: a face only "counts" for matching once it's centered and large enough inside this
+# box, so the patient gets a moment to step into position before anything is confirmed.
+# Expressed as fractions of the frame so it doesn't depend on camera resolution.
+FACE_FRAME_MARGIN_X = 0.30   # guide box spans the middle (1 - 2*margin) of the frame width
+FACE_FRAME_MARGIN_Y = 0.12   # ...and the middle (1 - 2*margin) of the frame height
+FACE_FRAME_MIN_WIDTH_FRAC = 0.16  # detected face box must be at least this wide (relative to frame) to count as "close enough"
 
 POSE_MODEL_WEIGHTS = POSITIONING_REPO / "yolo26n-pose.pt"
 
@@ -37,10 +58,13 @@ POSE_MODEL_WEIGHTS = POSITIONING_REPO / "yolo26n-pose.pt"
 POSE_EXAMPLE_DIR = POSITIONING_REPO / "outputs" / "data_review"
 POSE_EXAMPLE_IMAGE_NAMES = ["0008.png", "0009.png"]
 
-# -- ACU API Gateway (hackathon-api-guide.pdf): pushes the journey's narration to the
-# physical KettyBot Pro's screen + TTS. Empty url = dry-run (prints what it would send,
-# sends nothing) - this can only be filled in with values the hackathon organizers give
-# you on-site (gateway base URL, your approved device id). Never guess these.
-GATEWAY_URL = ""           # e.g. "http://10.27.238.122:3000" (no trailing /api)
-ROBOT_DEVICE_ID = ""       # your organizer-approved device, e.g. "team-blue-01"
+# -- ACU API Gateway (docs at GATEWAY_URL + "/docs/index.html"): pushes the journey's
+# narration to the physical robot's screen + TTS, and (once a robot is registered with it)
+# can source live frames from the robot's own cameras instead of the laptop's USB camera -
+# see camera_source.py / run.py --camera-source robot. Empty url = dry-run (prints what it
+# would send, sends nothing). ROBOT_DEVICE_ID stays empty until a real robot shows up in
+# GET /api/acu/devices - never guess it; `--camera-source robot` will pick it up
+# automatically if exactly one device is registered, or pass --robot-id explicitly.
+GATEWAY_URL = "http://10.27.239.122:3000"  # no trailing /api
+ROBOT_DEVICE_ID = ""       # your organizer-approved device, e.g. "team-blue-01" - set once one is registered
 GATEWAY_MIN_INTERVAL_S = 2.5  # don't push a new workflow to the shared gateway more often than this

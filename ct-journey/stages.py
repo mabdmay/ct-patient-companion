@@ -9,6 +9,13 @@ during every camera-using stage; elsewhere they just shape the displayed/spoken 
 """
 from dataclasses import dataclass
 
+import journey_config as _cfg
+
+_TRAVEL = _cfg.SIMULATED_TRAVEL_SECONDS
+# Base recognition time plus the extra confirmation dwell, so the robot lingers on "yes,
+# it's still you" for a bit instead of snapping straight to the next stage.
+_CONFIRM = 5 + _cfg.CONFIRM_DWELL_SECONDS
+
 
 @dataclass(frozen=True)
 class Stage:
@@ -21,16 +28,16 @@ class Stage:
 STAGES = [
     Stage("waiting_room_call", "Waiting room", 6, "call_and_wait"),
     Stage("greet", "Greeting", 5, "static"),
-    Stage("guide_changing_room", "Guiding to changing room", 8, "track"),
-    Stage("confirm_at_changing_room", "Confirming at the door", 5, "identify"),
+    Stage("guide_changing_room", "Guiding to changing room", _TRAVEL, "track"),
+    Stage("confirm_at_changing_room", "Confirming at the door", _CONFIRM, "identify"),
     Stage("changing_room_wait", "Waiting while changing", 12, "static"),
-    Stage("confirm_after_changing", "Confirming on return", 5, "identify"),
-    Stage("guide_ct_room", "Guiding to CT room", 8, "track"),
+    Stage("confirm_after_changing", "Confirming on return", _CONFIRM, "identify"),
+    Stage("guide_ct_room", "Guiding to CT room", _TRAVEL, "track"),
     Stage("posture_instructions", "Positioning instructions", 8, "examples"),
     Stage("pose_monitoring", "Checking position", 18, "pose_loop"),
     Stage("scanning", "Scanning", 8, "static"),
     Stage("scan_complete", "Scan complete", 5, "static"),
-    Stage("return_waiting_room", "Returning", 8, "static"),
+    Stage("return_waiting_room", "Returning", _TRAVEL, "static"),
     Stage("done", "Journey complete", 5, "static"),
 ]
 
@@ -38,7 +45,7 @@ STAGES = [
 def render_message(stage: Stage, state, config) -> str:
     name = state.detected_name or config.DEMO_PATIENT_NAME
     if stage.id == "waiting_room_call":
-        return f"{config.DEMO_PATIENT_NAME}? {config.DEMO_PATIENT_NAME}, it's time for your CT scan. I'm coming to get you."
+        return "Hello? It's time for your CT scan. I'm coming to get you."
     if stage.id == "greet":
         return f"Hi {name}, I am your CT companion Olaf. Please follow me."
     if stage.id == "guide_changing_room":

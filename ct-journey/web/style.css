@@ -7,6 +7,7 @@
   --ok: #4caf50;
   --warn: #ffb300;
   --bad: #e53935;
+  --blush: #ff8fab;
 }
 
 * { box-sizing: border-box; }
@@ -18,6 +19,88 @@ body {
   font-family: "Segoe UI", Arial, sans-serif;
   height: 100vh;
   overflow: hidden;
+}
+
+/* -- Pre-connect screen: shown before anything else, nothing (camera included) starts
+   until the operator picks a source here. */
+#source-select {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  padding: 0 32px;
+}
+
+#source-select h1 {
+  font-size: 2.2rem;
+  margin: 0;
+}
+
+#source-select > p {
+  color: var(--dim);
+  font-size: 1.1rem;
+  margin: 0 0 24px;
+}
+
+#source-buttons {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.source-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 260px;
+  padding: 32px 20px;
+  background: var(--panel);
+  border: 2px solid #2a2f3a;
+  border-radius: 16px;
+  color: var(--fg);
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+
+.source-btn:hover {
+  border-color: var(--accent);
+}
+
+.source-btn:active {
+  transform: translateY(1px);
+}
+
+.source-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.source-btn.chosen {
+  border-color: var(--ok);
+}
+
+.source-icon {
+  font-size: 2.6rem;
+}
+
+.source-label {
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.source-sub {
+  font-size: 0.9rem;
+  color: var(--dim);
+}
+
+#source-status {
+  min-height: 1.5em;
+  color: var(--accent);
 }
 
 #layout {
@@ -68,11 +151,158 @@ main {
   text-align: center;
 }
 
+/* While the giant face is up, it IS the screen - everything else (status text, badges,
+   positioning examples) steps aside. They come back the moment real camera sensing starts
+   (face hides, body.face-mode is removed) since that status text is actually useful there. */
+body.face-mode #message,
+body.face-mode #badges,
+body.face-mode #examples,
+body.face-mode header {
+  display: none;
+}
+
 #message {
   font-size: 2.6rem;
   font-weight: 600;
   line-height: 1.3;
   max-width: 900px;
+}
+
+/* -- Olaf's face: just two giant eyes and a mouth, nothing else - the whole point is for
+   this to BE the screen, not a decoration on it. Every animation here touches only
+   `transform` (never box-shadow/width/height/filter) so it stays GPU-compositor-only and
+   doesn't trigger the repaint-storm rendering glitches (blank/black screen) that heavier
+   CSS caused on the robot's WebView.
+
+   Structure: each .eye is an outer "mood" wrapper (expression classes scale/squash it) with
+   an inner .eye-ball that does the actual blinking/winking - keeping those two transforms on
+   separate elements means a wink or a mood change never fights the blink animation. */
+#face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6vmin;
+  flex: 1;
+  width: 100%;
+}
+
+#face.face-hidden {
+  display: none;
+}
+
+.eyes {
+  display: flex;
+  gap: 8vmin;
+}
+
+.eye {
+  width: 26vmin;
+  height: 26vmin;
+  max-width: 220px;
+  max-height: 220px;
+  transition: transform 0.25s ease;
+}
+
+.eye-ball {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff, var(--fg) 70%);
+  position: relative;
+  animation: blink 4.5s ease-in-out infinite;
+}
+
+.eye-ball::after {
+  content: "";
+  position: absolute;
+  width: 40%;
+  height: 40%;
+  border-radius: 50%;
+  background: #2b2f6b;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.08); }
+}
+
+.mouth {
+  width: 20vmin;
+  height: 20vmin;
+  max-width: 170px;
+  max-height: 170px;
+  border: 10px solid var(--blush);
+  border-top-color: transparent;
+  border-left-color: transparent;
+  border-right-color: transparent;
+  border-radius: 50%;
+  transform-origin: center;
+  transform: scaleY(0.35);  /* default: a gentle closed-mouth smile */
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+/* While speaking, the mouth scales open/closed in a little talking loop. */
+#face.speaking .mouth {
+  animation: talk 0.4s ease-in-out infinite;
+}
+
+@keyframes talk {
+  0%, 100% { transform: scaleY(0.45); }
+  50% { transform: scaleY(1.1); }
+}
+
+/* A gentle idle bob so the face reads as "alive" even when silent. */
+#face.idle {
+  animation: sway 6s ease-in-out infinite;
+}
+
+@keyframes sway {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.2vmin); }
+}
+
+/* While Whisper is listening/transcribing: a soft scale pulse instead of the talk loop. */
+#face.listening {
+  animation: thinking 1.1s ease-in-out infinite;
+}
+
+@keyframes thinking {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+/* -- Expressions, picked in app.js from keywords in whatever Olaf is about to say. Each one
+   only ever sets a static `transform`/`border-color` - never starts its own animation - so
+   it can never collide with blink/talk/wink, which stay on the inner elements. */
+#face.expr-excited .eye, #face.expr-surprised .eye { transform: scale(1.12); }
+#face.expr-excited .mouth, #face.expr-surprised .mouth {
+  border-color: var(--blush);
+  transform: scaleY(0.9);
+}
+
+#face.expr-sad .eye { transform: scaleY(0.75); }
+#face.expr-sad .mouth {
+  border-color: transparent;
+  border-top-color: var(--blush);
+  transform: scaleY(0.4) translateY(10px);
+}
+
+#face.expr-sleepy .eye { transform: scaleY(0.4); }
+#face.expr-sleepy .mouth { transform: scaleY(0.15); }
+
+#face.expr-curious .eye-left { transform: scale(1.1); }
+#face.expr-curious .eye-right { transform: scale(0.92); }
+
+#heard-text {
+  margin-top: -8px;
+  color: var(--accent);
+  font-size: 1.3rem;
+  font-style: italic;
+  max-width: 700px;
 }
 
 #badges {
@@ -105,8 +335,13 @@ main {
   border: 1px solid #2a2f3a;
 }
 
-#next-btn {
+#controls {
   margin-top: 32px;
+  display: flex;
+  gap: 16px;
+}
+
+#next-btn, #listen-btn {
   padding: 16px 48px;
   font-size: 1.3rem;
   font-weight: 600;
@@ -117,12 +352,26 @@ main {
   cursor: pointer;
 }
 
+#listen-btn {
+  background: var(--blush);
+}
+
 #next-btn:hover {
   background: #7ad3f9;
 }
 
-#next-btn:active {
+#listen-btn:hover {
+  background: #ffb3c6;
+}
+
+#next-btn:active, #listen-btn:active {
   transform: translateY(1px);
+}
+
+#listen-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
 }
 
 #camera-panel {
@@ -142,6 +391,10 @@ main {
   width: 100%;
 }
 
+.cam-wrap {
+  position: relative;
+}
+
 #camera-panel img {
   width: 100%;
   max-height: 70vh;
@@ -149,6 +402,29 @@ main {
   border-radius: 8px;
   background: #000;
   border: 1px solid #2a2f3a;
+  display: block;
+}
+
+/* The alignment guide: "step into this box" while a face-identify stage is checking who's
+   in frame. Matches journey_config.FACE_FRAME_MARGIN_X/Y so what the patient sees lines up
+   with what the backend actually requires before a match counts. Turns from blush (not yet
+   aligned) to green (aligned, about to confirm) as feedback. */
+#face-frame {
+  display: none;
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  top: 12%;
+  bottom: 12%;
+  border: 3px dashed var(--blush);
+  border-radius: 50% / 40%;
+  transition: border-color 0.2s ease;
+  pointer-events: none;
+}
+
+#face-frame.aligned {
+  border-color: var(--ok);
+  border-style: solid;
 }
 
 #camera-panel figcaption {

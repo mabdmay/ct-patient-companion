@@ -3,3 +3,7 @@ uvicorn
 requests
 opencv-python>=4.10,<5
 numpy
+elevenlabs
+python-dotenv
+openai-whisper
+sounddevice

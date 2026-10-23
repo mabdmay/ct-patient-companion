@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnostic</title>
+</head>
+<body style="background:#ffffff; color:#000000; font-family:sans-serif; font-size:28px; padding:20px;">
+
+<p style="background:red; color:white; padding:10px;">TEST 1: plain inline-styled HTML. If you see this red box, basic page rendering works.</p>
+
+<p id="test2" style="padding:10px;">TEST 2: inline script not yet run.</p>
+<script>
+  document.getElementById("test2").textContent = "TEST 2: inline <script> ran OK.";
+  document.getElementById("test2").style.background = "blue";
+  document.getElementById("test2").style.color = "white";
+</script>
+
+<p id="test3" style="padding:10px; background:#ccc;">TEST 3: external CSS not yet checked.</p>
+<link rel="stylesheet" href="/style.css">
+<script>
+  // style.css defines --bg etc on :root - if it loaded, this computed value will be non-empty.
+  const bgVar = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  const el3 = document.getElementById("test3");
+  el3.textContent = bgVar ? ("TEST 3: external /style.css loaded OK (--bg = " + bgVar + ")") : "TEST 3: external /style.css did NOT load";
+  el3.style.background = bgVar ? "green" : "orange";
+  el3.style.color = "white";
+</script>
+
+<p id="test4" style="padding:10px; background:#ccc;">TEST 4: fetch /api/state not yet checked.</p>
+<script>
+  fetch("/api/state", { cache: "no-store" })
+    .then((r) => r.json())
+    .then((s) => {
+      const el4 = document.getElementById("test4");
+      el4.textContent = "TEST 4: fetch /api/state OK -> stage_id=" + s.stage_id;
+      el4.style.background = "green";
+      el4.style.color = "white";
+    })
+    .catch((err) => {
+      const el4 = document.getElementById("test4");
+      el4.textContent = "TEST 4: fetch /api/state FAILED -> " + err;
+      el4.style.background = "orange";
+      el4.style.color = "white";
+    });
+</script>
+
+<div id="test5" style="padding:10px; margin-top:10px; background:#ccc; color:black;">
+  TEST 5: CSS animation below (a bouncing circle). If you see solid black instead of this
+  whole page, the animation itself is the problem.
+  <div style="width:40px;height:40px;border-radius:50%;background:purple;margin-top:10px;animation:bounce 1s ease-in-out infinite;"></div>
+</div>
+<style>
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+</style>
+
+<p style="padding:10px; background:#333; color:#fff;">END OF DIAGNOSTIC PAGE - if you can read this line, everything above rendered.</p>
+
+</body>
+</html>

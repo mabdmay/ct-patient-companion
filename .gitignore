@@ -31,3 +31,10 @@ ct-journey-kiosk/.idea/
 
 # ct-journey runtime outputs
 ct-journey/outputs/
+ct-journey/server.log
+ct-journey/*.wav
+ct-journey/tts_voices/
+
+# API keys / secrets - never committed
+.env
+*.env

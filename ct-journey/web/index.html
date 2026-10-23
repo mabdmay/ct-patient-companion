@@ -7,7 +7,25 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div id="layout">
+  <div id="source-select">
+    <h1>CT Journey</h1>
+    <p>Before connecting, choose where Olaf's camera feed comes from.</p>
+    <div id="source-buttons">
+      <button id="source-external" class="source-btn">
+        <span class="source-icon">&#128247;</span>
+        <span class="source-label">External Camera</span>
+        <span class="source-sub">USB camera plugged into the laptop</span>
+      </button>
+      <button id="source-robot" class="source-btn">
+        <span class="source-icon">&#129302;</span>
+        <span class="source-label">Robot Cameras</span>
+        <span class="source-sub">The robot's own cameras, via the ACU Gateway</span>
+      </button>
+    </div>
+    <p id="source-status"></p>
+  </div>
+
+  <div id="layout" style="display:none">
     <div id="content">
       <header>
         <div id="stage-title">Starting up...</div>
@@ -15,7 +33,16 @@
       </header>
 
       <main>
+        <div id="face" aria-hidden="true">
+          <div class="eyes">
+            <div class="eye eye-left"><div class="eye-ball"></div></div>
+            <div class="eye eye-right"><div class="eye-ball"></div></div>
+          </div>
+          <div class="mouth"></div>
+        </div>
+
         <p id="message">Please wait.</p>
+        <p id="heard-text" style="display:none"></p>
 
         <div id="badges">
           <span id="track-badge" class="badge" style="display:none"></span>
@@ -24,14 +51,20 @@
 
         <div id="examples"></div>
 
-        <button id="next-btn" style="display:none">Next &rarr;</button>
+        <div id="controls">
+          <button id="listen-btn" style="display:none">&#127908; Listen</button>
+          <button id="next-btn" style="display:none">Next &rarr;</button>
+        </div>
       </main>
     </div>
 
     <aside id="camera-panel" style="display:none">
       <figure>
-        <img id="live-cam" alt="camera" onerror="this.style.visibility='hidden'" onload="this.style.visibility='visible'">
-        <figcaption>Looking for you...</figcaption>
+        <div class="cam-wrap">
+          <img id="live-cam" alt="camera" onerror="this.style.visibility='hidden'" onload="this.style.visibility='visible'">
+          <div id="face-frame"></div>
+        </div>
+        <figcaption id="cam-caption">Looking for you...</figcaption>
       </figure>
     </aside>
   </div>

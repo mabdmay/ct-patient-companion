@@ -1,41 +1,128 @@
 let lastSpoken = -1;
 let camerasActive = false;
 let manualMode = false;
-let chosenVoice = null;
+let currentAudio = null;
+let winkTimer = null;
 
-// Prefer a natural/neural voice (Edge/Chrome ship these as "... Online (Natural)" or
-// "Google ... Natural") over the default robotic SAPI voice, for a friendlier companion.
-function pickVoice() {
+// A browser mirroring the robot's screen (e.g. the laptop watching the demo) adds
+// ?mute=1 to skip speech synthesis and ?readonly=1 to hide the manual "Next"/"Listen"
+// buttons - otherwise every mirrored tab would also talk and could control the robot.
+const viewParams = new URLSearchParams(window.location.search);
+const isMuted = viewParams.get("mute") === "1";
+const isReadonly = viewParams.get("readonly") === "1";
+
+// ---------------------------------------------------------------- speech (ElevenLabs first)
+// Olaf's real voice: synthesized server-side by ElevenLabs (see tts.py), so it sounds the
+// same everywhere regardless of what TTS engine (often robotic) happens to be installed on
+// the viewing device. Falls back to the browser's built-in voice only if that request fails,
+// so the robot is never silently mute.
+let chosenVoice = null;
+const FEMALE_VOICE_NAMES = /female|woman|\bzira\b|\bhazel\b|\baria\b|\bjenny\b|\blibby\b|\bsonia\b|\bsamantha\b|\bsusan\b|\blinda\b|\bheera\b|\braveena\b|\bjoanna\b|\bkendra\b|\bkimberly\b|\bsalli\b|\bivy\b|\beva\b|\bkaren\b|\bmoira\b|\btessa\b|\bveena\b|\bfiona\b|\bvictoria\b|\bemma\b|\bamelia\b|\bolivia\b|\bgoogle us english\b/i;
+const MALE_VOICE_NAMES = /\bmale\b|\bman\b|\bdavid\b|\bmark\b|\bguy\b|\bdaniel\b|\bmatthew\b|\bjustin\b|\bbrian\b|\beric\b|\bgeorge\b|\bkevin\b|\bryan\b/i;
+
+function pickBrowserVoice() {
   const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
   if (!voices.length) return null;
   const english = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith("en"));
   const pool = english.length ? english : voices;
   const score = (v) => {
     const name = v.name.toLowerCase();
-    if (name.includes("natural")) return 3;
-    if (name.includes("online") || name.includes("neural")) return 2;
-    if (/aria|jenny|libby|sonia|samantha|zira|female/.test(name)) return 1;
-    return 0;
+    let s = 0;
+    if (FEMALE_VOICE_NAMES.test(name)) s += 10;
+    else if (MALE_VOICE_NAMES.test(name)) s -= 10;
+    if (name.includes("natural")) s += 3;
+    if (name.includes("online") || name.includes("neural")) s += 2;
+    return s;
   };
   return pool.slice().sort((a, b) => score(b) - score(a))[0];
 }
 
-function speak(text) {
-  if (!text || !window.speechSynthesis) return;
+if (window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    chosenVoice = pickBrowserVoice();
+  };
+}
+
+function speakBrowserFallback(text, faceEl) {
+  if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
-  if (!chosenVoice) chosenVoice = pickVoice();
+  if (!chosenVoice) chosenVoice = pickBrowserVoice();
   if (chosenVoice) utter.voice = chosenVoice;
   utter.rate = 0.97;
   utter.pitch = 1.05;
+  utter.onstart = () => faceEl.classList.add("speaking");
+  utter.onend = utter.onerror = () => faceEl.classList.remove("speaking");
   window.speechSynthesis.speak(utter);
 }
 
-if (window.speechSynthesis) {
-  window.speechSynthesis.onvoiceschanged = () => {
-    chosenVoice = pickVoice();
-  };
+async function speak(text) {
+  const faceEl = document.getElementById("face");
+  if (!text || !faceEl) return;
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+  try {
+    const res = await fetch(`/api/tts?text=${encodeURIComponent(text)}`);
+    if (!res.ok) throw new Error("tts http " + res.status);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    currentAudio = audio;
+    audio.onplay = () => faceEl.classList.add("speaking");
+    audio.onended = audio.onerror = () => {
+      faceEl.classList.remove("speaking");
+      URL.revokeObjectURL(url);
+    };
+    await audio.play();
+  } catch (err) {
+    console.error("local TTS failed, falling back to browser voice:", err);
+    speakBrowserFallback(text, faceEl);
+  }
 }
+
+// ---------------------------------------------------------------- expressions & winking
+// A light keyword scan over whatever Olaf is about to say, so the face's mood roughly
+// matches the tone of the line instead of always looking the same.
+function expressionForText(text) {
+  const t = (text || "").toLowerCase();
+  if (/sorry|unavailable|error|trouble/.test(t)) return "sad";
+  if (/all done|finished|complete|great|congrat|welcome back|thank you/.test(t)) return "excited";
+  if (/wait|hold on|changing|while you/.test(t)) return "sleepy";
+  if (/\?/.test(t)) return "curious";
+  return "happy";
+}
+
+const EXPRESSIONS = ["expr-happy", "expr-excited", "expr-sad", "expr-sleepy", "expr-curious"];
+function setExpression(faceEl, name) {
+  EXPRESSIONS.forEach((c) => faceEl.classList.remove(c));
+  faceEl.classList.add(`expr-${name}`);
+}
+
+function wink() {
+  const faceEl = document.getElementById("face");
+  if (!faceEl || faceEl.classList.contains("face-hidden")) return;
+  const side = Math.random() < 0.5 ? "left" : "right";
+  const ball = document.querySelector(`.eye-${side} .eye-ball`);
+  if (!ball) return;
+  ball.style.animationPlayState = "paused";
+  ball.style.transform = "scaleY(0.06)";
+  setTimeout(() => {
+    ball.style.transform = "";
+    ball.style.animationPlayState = "running";
+  }, 220);
+}
+
+function scheduleWink() {
+  clearTimeout(winkTimer);
+  const delay = 4000 + Math.random() * 5000;  // every ~4-9s while idle
+  winkTimer = setTimeout(() => {
+    wink();
+    scheduleWink();
+  }, delay);
+}
+scheduleWink();
 
 function setBadge(el, text, cls) {
   if (!text) {
@@ -52,15 +139,49 @@ async function poll() {
     const res = await fetch("/api/state", { cache: "no-store" });
     const s = await res.json();
 
+    // Nothing (camera included) starts until a source is chosen on this pre-connect screen -
+    // see runner.py JourneyRunner._source_chosen. Once state reports one, switch over to the
+    // normal journey UI and never show this screen again for the rest of the run.
+    const sourceSelect = document.getElementById("source-select");
+    const layout = document.getElementById("layout");
+    if (sourceSelect && layout) {
+      const chosen = !!s.camera_source;
+      sourceSelect.style.display = chosen ? "none" : "flex";
+      layout.style.display = chosen ? "flex" : "none";
+    }
+
     document.getElementById("stage-title").textContent = s.title || "";
     document.getElementById("message").textContent = s.message || "";
 
     manualMode = !!s.manual;
-    document.getElementById("next-btn").style.display = manualMode ? "inline-block" : "none";
+    document.getElementById("next-btn").style.display = manualMode && !isReadonly ? "inline-block" : "none";
     document.querySelector(".progress-track").style.display = manualMode ? "none" : "block";
     if (!manualMode) {
       const pct = s.duration > 0 ? Math.min(100, (100 * s.elapsed) / s.duration) : 0;
       document.getElementById("progress").style.width = pct + "%";
+    }
+
+    // Olaf's face is the whole screen while idle/talking/listening - only real camera
+    // sensing (s.watching) switches over to the live feed + status text instead. Everything
+    // else (message text, badges, examples) is hidden while the face is up, by design: just
+    // the eyes and mouth.
+    const faceEl = document.getElementById("face");
+    const showFace = !!s.listening || !s.watching;
+    faceEl.classList.toggle("face-hidden", !showFace);
+    faceEl.classList.toggle("listening", !!s.listening);
+    faceEl.classList.toggle("idle", showFace && !s.listening && !faceEl.classList.contains("speaking"));
+    if (showFace) setExpression(faceEl, expressionForText(s.message));
+
+    document.body.classList.toggle("face-mode", showFace);
+
+    const heardEl = document.getElementById("heard-text");
+    if (heardEl) {
+      if (s.heard_text && !s.listening) {
+        heardEl.textContent = `"${s.heard_text}"`;
+        heardEl.style.display = "block";
+      } else {
+        heardEl.style.display = "none";
+      }
     }
 
     // The camera panel only shows while the robot is actually using the camera this
@@ -74,6 +195,25 @@ async function poll() {
     } else if (!s.watching && camerasActive) {
       camerasActive = false;
       liveCam.src = "";  // closes the stream connection until it's needed again
+    }
+
+    // The alignment guide only makes sense during face-identify stages; it turns solid
+    // green once the backend agrees the face is centered/close enough to actually match.
+    const frameEl = document.getElementById("face-frame");
+    const captionEl = document.getElementById("cam-caption");
+    if (frameEl && captionEl) {
+      const isIdentifyStage = ["waiting_room_call", "confirm_at_changing_room", "confirm_after_changing"].includes(s.stage_id);
+      if (isIdentifyStage && s.watching) {
+        frameEl.style.display = "block";
+        frameEl.classList.toggle("aligned", s.face_aligned === true);
+        captionEl.textContent =
+          s.face_aligned === true ? "Got it!" :
+          s.face_aligned === false ? "Step into the frame and face the camera" :
+          "Looking for you...";
+      } else {
+        frameEl.style.display = "none";
+        captionEl.textContent = "Looking for you...";
+      }
     }
 
     const trackEl = document.getElementById("track-badge");
@@ -103,7 +243,7 @@ async function poll() {
 
     if (s.speak_seq !== lastSpoken) {
       lastSpoken = s.speak_seq;
-      speak(s.message);
+      if (!isMuted) speak(s.message);
     }
   } catch (err) {
     console.error(err);
@@ -111,19 +251,67 @@ async function poll() {
   setTimeout(poll, 600);
 }
 
-document.addEventListener(
-  "click",
-  () => {
-    if (window.speechSynthesis && window.speechSynthesis.getVoices().length === 0) {
-      window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
-    }
-    chosenVoice = pickVoice();
-  },
-  { once: true }
-);
+// Guarded against missing elements: a WebView that cached an older index.html alongside a
+// freshly-fetched app.js (version skew) must not throw here and abort the whole script -
+// that would silently kill poll() below and leave the page stuck on its static placeholder.
+const nextBtn = document.getElementById("next-btn");
+if (nextBtn) {
+  nextBtn.addEventListener("click", () => {
+    fetch("/api/next", { method: "POST" }).catch((err) => console.error(err));
+  });
+}
 
-document.getElementById("next-btn").addEventListener("click", () => {
-  fetch("/api/next", { method: "POST" }).catch((err) => console.error(err));
-});
+// Pre-connect camera-source buttons. Disabled on a mirroring/readonly view - this is a
+// once-per-run operator decision, not something a second browser tab should be able to make.
+async function chooseSource(source) {
+  const statusEl = document.getElementById("source-status");
+  const buttons = document.querySelectorAll(".source-btn");
+  buttons.forEach((b) => (b.disabled = true));
+  document.getElementById(`source-${source}`).classList.add("chosen");
+  if (statusEl) statusEl.textContent = "Connecting...";
+  try {
+    const res = await fetch("/api/camera-source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source }),
+    });
+    if (!res.ok) throw new Error("http " + res.status);
+  } catch (err) {
+    console.error("camera-source choice failed:", err);
+    if (statusEl) statusEl.textContent = "Couldn't reach the server - try again.";
+    buttons.forEach((b) => (b.disabled = false));
+    document.getElementById(`source-${source}`).classList.remove("chosen");
+  }
+}
+
+const sourceExternalBtn = document.getElementById("source-external");
+const sourceRobotBtn = document.getElementById("source-robot");
+if (sourceExternalBtn && sourceRobotBtn) {
+  if (isReadonly) {
+    sourceExternalBtn.disabled = true;
+    sourceRobotBtn.disabled = true;
+    const statusEl = document.getElementById("source-status");
+    if (statusEl) statusEl.textContent = "Waiting for the camera source to be chosen on the robot...";
+  } else {
+    sourceExternalBtn.addEventListener("click", () => chooseSource("external"));
+    sourceRobotBtn.addEventListener("click", () => chooseSource("robot"));
+  }
+}
+
+const listenBtn = document.getElementById("listen-btn");
+if (listenBtn) {
+  if (!isReadonly) listenBtn.style.display = "inline-block";
+  listenBtn.addEventListener("click", async () => {
+    listenBtn.disabled = true;
+    listenBtn.textContent = "\u{1F3A4} Listening...";
+    try {
+      await fetch("/api/listen", { method: "POST" });
+    } catch (err) {
+      console.error(err);
+    }
+    listenBtn.disabled = false;
+    listenBtn.textContent = "\u{1F3A4} Listen";
+  });
+}
 
 poll();

@@ -11,6 +11,14 @@ Usage:
     python run.py --manual --camera 0   # if the USB camera isn't at index 1
     python run.py                       # fully automatic, timer-driven stages
     python run.py --no-face-service     # if patient_id.service is already running elsewhere
+
+Camera source (external USB camera vs. the real robot's own cameras over the ACU Gateway) is
+chosen from the UI itself by default: the web page shows an "External camera / Robot
+cameras" screen before the journey starts, and nothing touches a camera until that choice is
+made there - see web/index.html and POST /api/camera-source. Pass --camera-source to skip
+that screen and start immediately (handy for testing):
+    python run.py --camera-source external
+    python run.py --camera-source robot [--robot-id <deviceId>]
 """
 import argparse
 import subprocess
@@ -50,6 +58,11 @@ def main() -> None:
     ap.add_argument("--no-face-service", action="store_true", help="assume patient_id.service is already running")
     ap.add_argument("--manual", action="store_true",
                      help="click 'Next' in the UI to advance stages instead of a fixed timer")
+    ap.add_argument("--camera-source", choices=["external", "robot", "ask"], default="ask",
+                     help="frame source: this laptop's camera, the real robot's camera via the ACU Gateway, "
+                          "or prompt at startup (default)")
+    ap.add_argument("--robot-id", default=None,
+                     help="which registered robot to use with --camera-source robot (auto-picked if only one is online)")
     args = ap.parse_args()
 
     face_proc = None
@@ -62,7 +75,8 @@ def main() -> None:
             print("[journey] face-id service did not come up in time; continuing anyway")
 
     state = JourneyState()
-    runner = JourneyRunner(state, manual=args.manual, camera_index=args.camera)
+    runner = JourneyRunner(state, manual=args.manual, camera_index=args.camera,
+                            camera_source_choice=args.camera_source, robot_id=args.robot_id)
     runner.start()
 
     app = create_app(state, runner)

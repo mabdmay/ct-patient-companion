@@ -13,6 +13,7 @@ class JourneyState:
         self.stage_started_at = time.monotonic()
         self.stage_duration = 0.0
         self.detected_name = None
+        self.detected_patient_id = None
         self.detected_score = None
         self.confirm_text = None
         self.track_status = None
@@ -23,6 +24,11 @@ class JourneyState:
         self.camera_frame_jpeg: bytes | None = None
         self.manual = False
         self.watching = False  # True while the robot is actively using the camera this stage
+        self.face_aligned = None  # None = n/a this stage, False = known face seen but not centered yet, True = aligned
+        self.listening = False  # True while recording/transcribing a spoken answer (Whisper)
+        self.heard_text = None  # last thing Whisper transcribed, for display only (not spoken back)
+        self.camera_source = None  # "external" (laptop USB camera) or "robot" (ACU Gateway), set once the runner starts
+        self.robot_id = None  # the robot's deviceId, when camera_source == "robot"
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -42,6 +48,11 @@ class JourneyState:
                 "speak_seq": self.speak_seq,
                 "manual": self.manual,
                 "watching": self.watching,
+                "face_aligned": self.face_aligned,
+                "listening": self.listening,
+                "heard_text": self.heard_text,
+                "camera_source": self.camera_source,
+                "robot_id": self.robot_id,
             }
 
     def update(self, **kwargs) -> None:
