@@ -1,0 +1,32 @@
+{
+  "schema_version": "0.2",
+  "timestamp_utc": "2026-10-22T13:10:00.000Z",
+  "camera_id": "synthetic_camera",
+  "reference_id": "synthetic_centerline_v1",
+  "frame_index": 20,
+  "source_time_seconds": 2.0,
+  "status": "REPOSITION_REQUIRED",
+  "reasons": ["lateral_offset"],
+  "measurements": {
+    "center_offset_fraction": 0.1564,
+    "axis_error_deg": 0.0
+  },
+  "arm_assessment": {
+    "posture": "ALONGSIDE_BODY",
+    "left": "ALONGSIDE_BODY",
+    "right": "ALONGSIDE_BODY",
+    "confidence": 0.95,
+    "policy_enabled": false,
+    "allowed_postures": null,
+    "status": null,
+    "reasons": ["arm_posture_observed"],
+    "measurements": {}
+  },
+  "source_file": null,
+  "perception_confidence": 0.95,
+  "inference_ms": 0.0,
+  "processing_ms": 0.0,
+  "assessment_scope": "single_frame_2d_geometry",
+  "synthetic_landmarks": true,
+  "advisory_only": true
+}

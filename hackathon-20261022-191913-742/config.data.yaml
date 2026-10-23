@@ -1,0 +1,42 @@
+camera_id: supplied_photos_bed_only
+reference_id: demo_alongside_arms_image_plane_v1
+
+model:
+  weights: yolo26n-pose.pt
+  device: cpu
+  image_size: 640
+  confidence: 0.35
+  cpu_threads: 4
+
+table:
+  # Image-plane demo ROI for the supplied 1920x1080 fixed camera, not a metric calibration.
+  # Head end is image left. All outside pixels are masked before inference.
+  corners_normalized: [[0.203231, 0.671918], [0.203231, 0.403151], [0.760813, 0.403151], [0.760813, 0.671918]]
+  confirmed: true
+  near_nadir: true
+  dimensions_cm: null
+
+reference:
+  lateral_fraction: 0.0
+  longitudinal_fraction: null
+  axis_deg: 0.0
+
+thresholds:
+  keypoint_confidence: 0.5
+  min_torso_length_fraction: 0.04
+  max_lateral_fraction: 0.08
+  max_angle_deg: 8.0
+  max_longitudinal_fraction: 0.1
+
+arms:
+  # Demonstration protocol only; select the real examination's policy explicitly.
+  allowed_postures: [ALONGSIDE_BODY]
+  min_confidence: 0.5
+  raised_wrist_margin: 0.15
+  raised_elbow_limit: 0.2
+  torso_wrist_lateral_limit: 0.45
+  torso_inward_margin: 0.15
+  torso_wrist_longitudinal_max: 0.95
+  alongside_wrist_lateral_min: 0.35
+  alongside_wrist_longitudinal_min: 0.55
+  max_segment_length: 1.25

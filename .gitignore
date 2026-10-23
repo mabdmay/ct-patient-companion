@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Pretrained model weights (large, downloaded separately per each repo's README)
+*.onnx
+*.pt
+
+# Biometric / personal data - never committed
+patient-face-id-robot/data/
+patient-face-id-robot/reference_images/
+patient-face-id-robot/settings_ui_camera*.json
+
+# Captured photos/video and generated review outputs (may contain identifiable people)
+hackathon-20261022-191913-742/data/
+hackathon-20261022-191913-742/outputs/
+hackathon-20261022-191913-742/examples/generated/
+
+# Original hackathon zip (already extracted)
+hackathon-20261022-191913-742.zip
+
+# Android build artifacts / machine-specific config
+ct-journey-kiosk/app/build/
+ct-journey-kiosk/build/
+ct-journey-kiosk/.gradle/
+ct-journey-kiosk/local.properties
+ct-journey-kiosk/*.iml
+ct-journey-kiosk/.idea/
+
+# ct-journey runtime outputs
+ct-journey/outputs/

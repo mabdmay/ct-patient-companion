@@ -1,0 +1,2 @@
+rootProject.name = "ct-journey-kiosk"
+include ":app"

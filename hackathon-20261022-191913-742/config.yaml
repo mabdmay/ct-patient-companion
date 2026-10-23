@@ -1,0 +1,41 @@
+camera_id: ct_overhead_01
+reference_id: demo_centerline_v1
+
+model:
+  weights: yolo26n-pose.pt
+  device: cpu
+  image_size: 640
+  confidence: 0.35
+  cpu_threads: 4
+
+table:
+  # Replace these corners with the actual table: TL, TR, BR, BL.
+  corners_normalized: [[0.2, 0.05], [0.8, 0.05], [0.8, 0.95], [0.2, 0.95]]
+  confirmed: false
+  near_nadir: false
+  # Only set measured dimensions for those exact four table-plane corners.
+  dimensions_cm: null
+
+reference:
+  lateral_fraction: 0.0
+  longitudinal_fraction: null
+  axis_deg: 0.0
+
+thresholds:
+  keypoint_confidence: 0.5
+  min_torso_length_fraction: 0.04
+  max_lateral_fraction: 0.08
+  max_angle_deg: 8.0
+  max_longitudinal_fraction: 0.1
+
+arms:
+  allowed_postures: null
+  min_confidence: 0.5
+  raised_wrist_margin: 0.15
+  raised_elbow_limit: 0.2
+  torso_wrist_lateral_limit: 0.45
+  torso_inward_margin: 0.15
+  torso_wrist_longitudinal_max: 0.95
+  alongside_wrist_lateral_min: 0.35
+  alongside_wrist_longitudinal_min: 0.55
+  max_segment_length: 1.25

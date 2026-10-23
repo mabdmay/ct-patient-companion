@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CT Patient Journey</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="layout">
+    <div id="content">
+      <header>
+        <div id="stage-title">Starting up...</div>
+        <div class="progress-track"><div id="progress" class="progress-fill"></div></div>
+      </header>
+
+      <main>
+        <p id="message">Please wait.</p>
+
+        <div id="badges">
+          <span id="track-badge" class="badge" style="display:none"></span>
+          <span id="posture-badge" class="badge" style="display:none"></span>
+        </div>
+
+        <div id="examples"></div>
+
+        <button id="next-btn" style="display:none">Next &rarr;</button>
+      </main>
+    </div>
+
+    <aside id="camera-panel" style="display:none">
+      <figure>
+        <img id="live-cam" alt="camera" onerror="this.style.visibility='hidden'" onload="this.style.visibility='visible'">
+        <figcaption>Looking for you...</figcaption>
+      </figure>
+    </aside>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

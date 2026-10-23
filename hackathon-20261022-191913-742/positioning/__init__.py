@@ -1,0 +1,1 @@
+"""Advisory, single-frame patient positioning prototype."""

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Position Review</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/lucide.min.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand"><span class="brand-icon"><i data-lucide="scan-line"></i></span><div><h1>Position Review</h1><span>CT positioning &middot; single-frame assessment</span></div></div>
+    <div class="local-label"><span class="connection-dot"></span> Local <span class="divider">/</span> Advisory only</div>
+  </header>
+  <main>
+    <section class="configuration" aria-label="Assessment configuration">
+      <label>Camera reference<select id="profile"></select></label>
+      <label>Arm policy<select id="policy"><option value="PROFILE">Camera default</option><option value="ALONGSIDE_BODY">Alongside body</option><option value="ARMS_RAISED">Arms raised</option><option value="OVER_TORSO">Over torso</option><option value="OBSERVE">Observation only</option></select></label>
+      <label class="sample-select">Sample image<select id="sample"><option value="">Select a photo</option></select></label>
+    </section>
+    <div class="workspace">
+      <section class="image-section" aria-label="Image workspace">
+        <div class="section-toolbar">
+          <div><h2>Image assessment</h2><p id="filename">No image selected</p></div>
+          <div class="toolbar-actions">
+            <button id="upload" class="icon-button" title="Upload image" aria-label="Upload image"><i data-lucide="upload"></i></button>
+            <button id="paste" class="icon-button" title="Paste image from clipboard" aria-label="Paste image from clipboard"><i data-lucide="clipboard-paste"></i></button>
+            <button id="clear" class="icon-button" title="Clear image" aria-label="Clear image" disabled><i data-lucide="x"></i></button>
+          </div>
+        </div>
+        <div class="image-tool" id="dropzone" tabindex="0" aria-label="Image workspace. Paste or drop an image.">
+          <div class="image-toolbar">
+            <div class="tabs" role="tablist" aria-label="Image view"><button id="input-tab" role="tab" aria-selected="true">Bed image</button><button id="overlay-tab" role="tab" aria-selected="false" disabled>Landmarks</button></div>
+            <div class="toolbar-actions"><button id="edit" class="icon-button" title="Edit bed rectangle; drag across the image" aria-label="Edit bed rectangle" disabled><i data-lucide="scan"></i></button><button id="download-image" class="icon-button" title="Download annotated bed image" aria-label="Download annotated bed image" disabled><i data-lucide="image-down"></i></button></div>
+          </div>
+          <div class="canvas-area"><canvas id="canvas" aria-label="Bed image preview"></canvas><div id="empty"><i data-lucide="image"></i><span>No image selected</span><button id="choose" class="text-button">Choose image</button></div><div id="busy" hidden><span class="spinner"></span><span>Assessing image</span><small>First analysis may take longer</small></div></div>
+          <div class="image-footer"><span id="image-info">&mdash;</span><span id="view-label">Bed region only</span></div>
+        </div>
+        <div id="bed-editor" class="bed-editor" hidden>
+          <label>Head end<select id="orientation"><option value="LEFT">Image left</option><option value="RIGHT">Image right</option><option value="TOP">Image top</option><option value="BOTTOM">Image bottom</option></select></label>
+          <label class="check-label"><input id="nadir" type="checkbox"> Near-overhead rectangular view</label>
+          <label class="check-label"><input id="confirmed" type="checkbox"> Bed reference confirmed</label>
+          <button id="finish-edit" class="text-button">Done</button>
+        </div>
+        <div class="analysis-actions"><div class="reference-note"><i data-lucide="crosshair"></i><span id="reference-label">Loading camera reference</span></div><button id="analyze" class="primary-button" disabled><i data-lucide="scan-line"></i> Analyze image</button></div>
+        <p id="error" role="alert" hidden></p>
+        <details class="event-details"><summary>Positioning event <span>JSON</span></summary><div class="event-toolbar"><button id="download-json" class="icon-button" title="Download JSON event" aria-label="Download JSON event" disabled><i data-lucide="download"></i></button></div><pre id="event">No assessment yet.</pre></details>
+      </section>
+      <aside class="results" aria-label="Assessment results" aria-live="polite">
+        <div class="result-heading"><h2>Decision</h2><span class="scope-label">2D / single frame</span></div>
+        <div id="decision" class="decision neutral"><span id="status-icon"><i data-lucide="circle-dashed"></i></span><div><h3 id="status">Not assessed</h3><p id="status-code">AWAITING_IMAGE</p></div></div>
+        <ul id="reasons" class="reasons"><li>No assessment yet.</li></ul>
+        <div class="check-heading"><h3>Position checks</h3><span>Measured / limit</span></div>
+        <dl class="measurements"><div><dt>Lateral offset</dt><dd id="lateral">&mdash;</dd><small id="lateral-limit">&mdash;</small></div><div><dt>Axis error</dt><dd id="angle">&mdash;</dd><small id="angle-limit">&mdash;</small></div><div><dt>Longitudinal offset</dt><dd id="longitudinal">&mdash;</dd><small id="longitudinal-limit">Not configured</small></div></dl>
+        <div class="arm-heading"><h3>Arm posture</h3><span id="arm-policy">&mdash;</span></div><div id="arm-posture" class="arm-posture">Not observed</div><div class="arm-sides"><span>Left <strong id="left-arm">&mdash;</strong></span><span>Right <strong id="right-arm">&mdash;</strong></span></div>
+        <dl class="run-info"><div><dt>Model score</dt><dd id="confidence">&mdash;</dd></div><div><dt>Inference</dt><dd id="inference">&mdash;</dd></div><div><dt>Total processing</dt><dd id="processing">&mdash;</dd></div><div><dt>Model</dt><dd id="model">YOLO26 nano pose</dd></div></dl>
+        <div class="safety-note"><i data-lucide="shield-alert"></i><p>No scan authorization. Leg posture, depth, and movement are not assessed.</p></div>
+      </aside>
+    </div>
+    <footer class="page-footer"><span>Hackathon prototype &middot; Not a medical device</span><span>Images processed locally &middot; No automatic image storage</span></footer>
+  </main>
+  <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/bmp" hidden>
+</body>
+</html>
